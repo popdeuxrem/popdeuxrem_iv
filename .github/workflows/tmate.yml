@@ -5,8 +5,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
     - uses: P3TERX/ssh2actions@main
-      env:
+      with:
         TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
         TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
-      with:
-        detached: true 
+        detached: true

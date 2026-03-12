@@ -1,14 +1,17 @@
 name: Start SSH via tmate
 on: [push]
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
-      name: Start SSH via tmate
-    - uses: P3TERX/ssh2actions@v1.0.0
-      with: 
-       detached: true
-      env:
-        TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-        TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Start tmate / SSH (P3TERX/ssh2actions)
+        uses: P3TERX/ssh2actions@v1.0.0
+        with:
+          detached: true
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}

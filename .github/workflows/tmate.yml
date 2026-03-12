@@ -1,3 +1,4 @@
+name: Start SSH via tmate
 workflow_dispatch: # Manual trigger is safer for debugging
 
 jobs:

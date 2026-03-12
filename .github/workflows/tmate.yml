@@ -1,17 +1,37 @@
-name: Start SSH via tmate
-on: [push]
+workflow_dispatch: # Manual trigger is safer for debugging
 
 jobs:
-  build:
+  bridge:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout
+      - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Start tmate / SSH (P3TERX/ssh2actions)
-        uses: P3TERX/ssh2actions@v1.0.0
+      - name: Install GitHub CLI & Tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gh
+          
+      - name: Setup tmate Session
+        uses: P3TERX/ssh2actions@main
         with:
           detached: true
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+
+      - name: Keep-Alive & Codespace Sync
+        run: |
+          echo "SSH Session is active."
+          echo "To connect to a Codespace, use: gh cs ssh"
+          
+          # Prevents the job from finishing immediately
+          # This loop will run until the 6-hour GitHub Actions limit
+          while [ -f /tmp/continue ]; do
+            sleep 60
+            if [ ! -f /tmp/tmate.log ]; then
+              echo "Waiting for tmate session..."
+            fi
+          done
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

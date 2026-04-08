@@ -6,8 +6,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      codespaces: write # Required for 'gh cs ssh'
-    
+      codespaces: write # Required for 'gh cs' operations
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -25,32 +24,32 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
-      - name: Keep-Alive & Codespace Sync
+      - name: Keep-Alive & Connection Diagnostics
         run: |
-          # 1. Initialize the signal file to prevent immediate exit
+          # 1. Create the semaphore file to ensure the loop runs
           touch /tmp/continue
           
-          echo "SSH Session is active."
-          echo "To stop the session, run: rm /tmp/continue"
+          echo "Checking for tmate connection strings..."
           
-          # 2. Wait briefly for tmate to initialize the log
-          sleep 5
+          # 2. Wait for tmate to initialize and display the SSH connection string
+          timeout 30s bash -c 'until [ -S /tmp/tmate.sock ]; do sleep 1; done'
+          TMATE_SSH=$(tmate -S /tmp/tmate.sock display -p '#{tmate_ssh}')
           
-          # 3. Robust keep-alive loop
-          # Limits to 6 hours (GitHub Actions max) or until /tmp/continue is removed
-          timeout 6h bash -c '
+          echo "------------------------------------------------------------"
+          echo "CONNECT VIA SSH: $TMATE_SSH"
+          echo "------------------------------------------------------------"
+          
+          # 3. Non-blocking check for Codespaces
+          echo "Available Codespaces:"
+          gh cs list || echo "No Codespaces found or GH_TOKEN lacks permissions."
+
+          # 4. Sustenance Loop
           while [ -f /tmp/continue ]; do
             if ! pgrep -x "tmate" > /dev/null; then
-              echo "tmate process exited."
-              break
+              echo "tmate process exited. Shutting down runner."
+              exit 0
             fi
-            
-            # Print connection string to logs if tmate.log exists
-            if [ -f ~/.tmate.log ]; then
-              grep "ssh" ~/.tmate.log | tail -n 1
-            fi
-            
             sleep 60
-          done'
+          done
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

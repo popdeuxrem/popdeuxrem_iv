@@ -1,12 +1,13 @@
 name: Start SSH via tmate
-on: [push]
+on:
+  push:
 
 jobs:
   bridge:
     runs-on: ubuntu-latest
     permissions:
       contents: read
-      codespaces: write # Required for 'gh cs' operations
+      codespaces: write
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -14,7 +15,7 @@ jobs:
       - name: Install GitHub CLI & Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y gh tmate
+          sudo apt-get install -y gh
           
       - name: Setup tmate Session
         uses: P3TERX/ssh2actions@main
@@ -24,32 +25,22 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
-      - name: Keep-Alive & Connection Diagnostics
+      - name: Keep-Alive & Codespace Sync
         run: |
-          # 1. Create the semaphore file to ensure the loop runs
+          # Create the signal file immediately
           touch /tmp/continue
           
-          echo "Checking for tmate connection strings..."
+          echo "SSH Session is active."
           
-          # 2. Wait for tmate to initialize and display the SSH connection string
+          # Wait for tmate socket to be ready
           timeout 30s bash -c 'until [ -S /tmp/tmate.sock ]; do sleep 1; done'
-          TMATE_SSH=$(tmate -S /tmp/tmate.sock display -p '#{tmate_ssh}')
           
-          echo "------------------------------------------------------------"
-          echo "CONNECT VIA SSH: $TMATE_SSH"
-          echo "------------------------------------------------------------"
+          # Display connection info in logs
+          tmate -S /tmp/tmate.sock display -p '#{tmate_ssh}'
           
-          # 3. Non-blocking check for Codespaces
-          echo "Available Codespaces:"
-          gh cs list || echo "No Codespaces found or GH_TOKEN lacks permissions."
-
-          # 4. Sustenance Loop
           while [ -f /tmp/continue ]; do
-            if ! pgrep -x "tmate" > /dev/null; then
-              echo "tmate process exited. Shutting down runner."
-              exit 0
-            fi
             sleep 60
+            # Optional: Add logic to check if connection is still alive
           done
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

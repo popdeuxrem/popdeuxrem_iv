@@ -4,6 +4,10 @@ on: [push]
 jobs:
   bridge:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      codespaces: write # Required for 'gh cs ssh'
+    
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
@@ -11,7 +15,7 @@ jobs:
       - name: Install GitHub CLI & Tools
         run: |
           sudo apt-get update
-          sudo apt-get install -y gh
+          sudo apt-get install -y gh tmate
           
       - name: Setup tmate Session
         uses: P3TERX/ssh2actions@main
@@ -23,16 +27,30 @@ jobs:
 
       - name: Keep-Alive & Codespace Sync
         run: |
-          echo "SSH Session is active."
-          echo "To connect to a Codespace, use: gh cs ssh"
+          # 1. Initialize the signal file to prevent immediate exit
+          touch /tmp/continue
           
-          # Prevents the job from finishing immediately
-          # This loop will run until the 6-hour GitHub Actions limit
+          echo "SSH Session is active."
+          echo "To stop the session, run: rm /tmp/continue"
+          
+          # 2. Wait briefly for tmate to initialize the log
+          sleep 5
+          
+          # 3. Robust keep-alive loop
+          # Limits to 6 hours (GitHub Actions max) or until /tmp/continue is removed
+          timeout 6h bash -c '
           while [ -f /tmp/continue ]; do
-            sleep 60
-            if [ ! -f /tmp/tmate.log ]; then
-              echo "Waiting for tmate session..."
+            if ! pgrep -x "tmate" > /dev/null; then
+              echo "tmate process exited."
+              break
             fi
-          done
+            
+            # Print connection string to logs if tmate.log exists
+            if [ -f ~/.tmate.log ]; then
+              grep "ssh" ~/.tmate.log | tail -n 1
+            fi
+            
+            sleep 60
+          done'
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

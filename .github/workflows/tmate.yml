@@ -1,22 +1,21 @@
 name: Start SSH via tmate
 on:
   push:
+    branches: [ main, master ]
+  workflow_dispatch:
 
 jobs:
   bridge:
     runs-on: ubuntu-latest
-    permissions:
-      contents: read
-      codespaces: write
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      - name: Install GitHub CLI & Tools
+      - name: Install GitHub CLI
         run: |
           sudo apt-get update
           sudo apt-get install -y gh
-          
+
       - name: Setup tmate Session
         uses: P3TERX/ssh2actions@main
         with:
@@ -25,22 +24,28 @@ jobs:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
 
-      - name: Keep-Alive & Codespace Sync
+      - name: Keep-Alive & Connection Diagnostic
         run: |
-          # Create the signal file immediately
+          # 1. Initialize the semaphore to keep the runner alive
           touch /tmp/continue
           
-          echo "SSH Session is active."
+          # 2. Wait for tmate to generate the socket
+          timeout 60s bash -c 'until [ -S /tmp/tmate.sock ]; do sleep 2; done'
           
-          # Wait for tmate socket to be ready
-          timeout 30s bash -c 'until [ -S /tmp/tmate.sock ]; do sleep 1; done'
-          
-          # Display connection info in logs
+          # 3. Output the SSH connection string to the logs
+          echo "------------------------------------------------------------"
           tmate -S /tmp/tmate.sock display -p '#{tmate_ssh}'
+          echo "------------------------------------------------------------"
           
+          # 4. Stay alive as long as the semaphore exists
+          echo "Keep-alive loop started. Delete /tmp/continue to stop."
           while [ -f /tmp/continue ]; do
             sleep 60
-            # Optional: Add logic to check if connection is still alive
+            # Ensure tmate is still running
+            if ! pgrep -x "tmate" > /dev/null; then
+              echo "tmate exited."
+              break
+            fi
           done
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
